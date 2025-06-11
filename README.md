@@ -9,6 +9,9 @@
 
 ### Setup
 
+> [!IMPORTANT]
+> Install the [`pkg.pr.new`](https://github.com/apps/pkg-pr-new) GitHub App before proceeding as it is required for the workflow to function.
+
 1. Use this template in your repository.
 2. Navigate to [`actions > workflows > ci.yml`](../../actions/workflows/ci.yml).
 3. Click the <kbd>run workflow</kbd> button.
