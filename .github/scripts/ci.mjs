@@ -107,10 +107,18 @@ async function main() {
     console.log("📦 Publishing preview...");
     publicPackages.forEach((x) => console.log(`📝 Publishing package: ${x.packageJSON?.name} [./${path.relative(TEMP_DIR, x.location)}]`));
 
-    await execute(`npx pkg-pr-new publish ${publicPackages.map((x) => `"./${path.relative(TEMP_DIR, x.location)}"`).join(" ")} --packageManager=${packageManager} ${[packageManager.includes("npm") ? "--peerDeps" : ""]} --json=output.json --comment=off`, TEMP_DIR);
+    await execute(`npx pkg-pr-new publish ${publicPackages.map((x) => `"./${path.relative(TEMP_DIR, x.location)}"`).join(" ")} --packageManager=${packageManager} ${[packageManager.includes("npm") ? "--peerDeps" : ""]} --comment=off`, TEMP_DIR);
 
-    const { packages } = JSON.parse(readFileSync(path.join(TEMP_DIR, "output.json")));
-    const summaryMd = [`### 📦 NPM Preview for [\`${repo}\`](https://github.com/${repo}/tree/${branch})`, ...packages.map((pkg) => `- [\`${pkg.name}\`](${pkg.url})`)].join("\n");
+    const workflowBranch = process.env.GITHUB_REF_NAME;
+    const currentRepo = process.env.GITHUB_REPOSITORY;
+    const summaryMd = [
+      `### 📦 NPM Preview for [\`${repo}\`](https://github.com/${repo}/tree/${branch})`,
+      "",
+      "> [!WARNING]  ",
+      `> Packages published from the [\`${workflowBranch}/\`](../../tree/${workflowBranch}) branch will overwrite any existing packages.`,
+      "",
+      ...publicPackages.map((pkg) => `- [\`${pkg.packageJSON?.name}@${pkg.packageJSON?.version}\`](https://pkg.pr.new/${currentRepo}/${pkg.packageJSON?.name}@${workflowBranch})`)
+    ].join("\n");
     if (process.env.GITHUB_STEP_SUMMARY) {
       await promises.writeFile(process.env.GITHUB_STEP_SUMMARY, summaryMd);
     }

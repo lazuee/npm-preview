@@ -5,7 +5,10 @@
 
 ## npm-preview
 
-> `npm-preview` is a workflow template to preview and test packages, including monorepos, from any repo before publishing to NPM.
+> `npm-preview` is a workflow template for publishing preview versions of open-source packages.
+
+> [!WARNING]  
+> Packages published from the branch where this workflow runs will overwrite any existing packages.
 
 ### Setup
 
