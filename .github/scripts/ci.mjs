@@ -8,14 +8,19 @@ const TEMP_DIR = "temp";
 const repoUrl = argv?.[2];
 if (!repoUrl) throw new Error("GitHub repository URL required");
 
-async function execute(command, cwd = process.cwd()) {
+async function execute(command, options = {}) {
+  options.cwd ??= process.cwd();
+
+  const [cmd, ...args] = command.split(" ");
+  const child = spawn(cmd, args, { ...options, shell: true });
+  const stdout = [];
+  const stderr = [];
+
   return new Promise((resolve, reject) => {
-    let stdout = "", stderr = "";
-    const child = spawn(command, { shell: true, cwd });
-    child.stdout.on("data", (data) => !data.includes("npm warn exec") && (stdout += data));
-    child.stderr.on("data", (data) => !data.includes("npm warn exec") && (stderr += data));
+    child.stdout.on("data", (data) => !data.includes("npm warn exec") && stdout.push(data.toString()));
+    child.stderr.on("data", (data) => !data.includes("npm warn exec") && stderr.push(data.toString()));
+    child.on("close", (code) => (code === 0 ? resolve(stdout.join("")) : reject(`Command failed: ${command}\n${stderr.join("")}`)));
     child.on("error", reject);
-    child.on("close", (code) => (code === 0 ? resolve(stdout.trim()) : reject(`Command failed: ${command}\n${stderr}`)));
   });
 }
 
@@ -28,7 +33,7 @@ async function detectPM(cwd) {
 }
 
 async function getWorkspaces(cwd) {
-  const data = await execute("npx @monorepo-utils/get-workspaces-cli --format=json", cwd);
+  const data = await execute("npx @monorepo-utils/get-workspaces-cli --format=json", { cwd });
   return JSON.parse(data);
 }
 
@@ -40,7 +45,9 @@ async function main() {
     const shortBranch = /^[a-f0-9]{40}$/.test(branch) ? branch.slice(0, 7) : branch;
 
     await promises.rm(TEMP_DIR, { recursive: true, force: true });
-    await execute(`npx degit ${repo}${branch ? `#${branch}` : ""} ${TEMP_DIR}`);
+    await execute(`git clone https://github.com/${repo} ${TEMP_DIR}`);
+    await execute(`git fetch origin`, { cwd: TEMP_DIR });
+    await execute(`git switch -c ${branch}`, { cwd: TEMP_DIR });
 
     const packageManager = await detectPM(TEMP_DIR);
     if (packageManager === "deno") throw new Error("Unsupported package manager: deno. Supported managers are npm, bun, pnpm, yarn.");
@@ -78,7 +85,7 @@ async function main() {
     console.log(`🔗 Source: https://github.com/${repo}/tree/${shortBranch}`);
 
     console.log("📥 Installing dependencies...");
-    await execute(`${packageManager} install`, TEMP_DIR);
+    await execute(`${packageManager} install`, { cwd: TEMP_DIR });
     console.log("✅ Dependencies installed.");
 
     const hasPackages = workspaces.length > 0 && publicPackages.length > 0;
@@ -87,14 +94,14 @@ async function main() {
       const workspaceNote = hasPackages && buildablePackages.length > 0 ? ` (includes ${buildablePackages.length} workspace package${buildablePackages.length > 1 ? "s" : ""})` : "";
 
       console.log("🔧 Building via root package script...");
-      await execute(`${packageManager} run build`, TEMP_DIR);
+      await execute(`${packageManager} run build`, { cwd: TEMP_DIR });
       console.log(`✅ Root package built${workspaceNote}.`);
     } else if (hasPackages) {
       if (buildablePackages.length > 0) {
         console.log(`🔧 Building ${buildablePackages.length} workspace package(s)...`);
         for (const pkg of buildablePackages) {
           console.log(`➡️ Building package: ${x.packageJSON?.name}`);
-          await execute(`${packageManager} run build`, pkg.location);
+          await execute(`${packageManager} run build`, { cwd: pkg.location });
         }
         console.log("✅ Workspace packages built.");
       } else {
@@ -107,7 +114,7 @@ async function main() {
     console.log("📦 Publishing preview...");
     publicPackages.forEach((x) => console.log(`📝 Publishing package: ${x.packageJSON?.name} [./${path.relative(TEMP_DIR, x.location)}]`));
 
-    await execute(`npx pkg-pr-new publish ${publicPackages.map((x) => `"./${path.relative(TEMP_DIR, x.location)}"`).join(" ")} --packageManager=${packageManager} ${[packageManager.includes("npm") ? "--peerDeps" : ""]} --comment=off`, TEMP_DIR);
+    await execute(`npx pkg-pr-new publish ${publicPackages.map((x) => `"./${path.relative(TEMP_DIR, x.location)}"`).join(" ")} --packageManager=${packageManager} ${[packageManager.includes("npm") ? "--peerDeps" : ""]} --comment=off`, { cwd: TEMP_DIR });
 
     const workflowBranch = process.env.GITHUB_REF_NAME;
     const currentRepo = process.env.GITHUB_REPOSITORY;
