@@ -47,7 +47,7 @@ async function main() {
     await promises.rm(TEMP_DIR, { recursive: true, force: true });
     await execute(`git clone https://github.com/${repo} ${TEMP_DIR}`);
     await execute(`git fetch origin`, { cwd: TEMP_DIR });
-    await execute(`git switch -c ${branch}`, { cwd: TEMP_DIR });
+    await execute(`git checkout ${branch}`, { cwd: TEMP_DIR });
 
     const packageManager = await detectPM(TEMP_DIR);
     if (packageManager === "deno") throw new Error("Unsupported package manager: deno. Supported managers are npm, bun, pnpm, yarn.");
@@ -100,7 +100,7 @@ async function main() {
       if (buildablePackages.length > 0) {
         console.log(`🔧 Building ${buildablePackages.length} workspace package(s)...`);
         for (const pkg of buildablePackages) {
-          console.log(`➡️ Building package: ${x.packageJSON?.name}`);
+          console.log(`➡️ Building package: ${pkg.packageJSON?.name}`);
           await execute(`${packageManager} run build`, { cwd: pkg.location });
         }
         console.log("✅ Workspace packages built.");
