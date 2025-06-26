@@ -31,8 +31,8 @@ jobs:
 
       - name: Run build script
         run: |
-          git config --local user.email "${{ github.actor }}@users.noreply.github.com"
-          git config --local user.name "${{ github.actor }}"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
           git config --local url."https://api:${{ github.token }}@github.com/".insteadOf "https://github.com/"
           git config --local url."https://ssh:${{ github.token }}@github.com/".insteadOf "ssh://git@github.com/"
           git config --local url."https://git:${{ github.token }}@github.com/".insteadOf "git@github.com:"
